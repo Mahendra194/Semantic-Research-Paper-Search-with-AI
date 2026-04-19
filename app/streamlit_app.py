@@ -26,6 +26,16 @@ try:
 except ImportError:
     pass  # python-dotenv not installed, keys must be set in environment
 
+# Load Streamlit Cloud secrets into environment variables
+# (This is how secrets work on Streamlit Cloud — they appear in st.secrets)
+try:
+    if hasattr(st, "secrets"):
+        for key in ["GEMINI_API_KEY", "OPENAI_API_KEY", "HF_TOKEN", "HF_REPO_ID"]:
+            if key in st.secrets and key not in os.environ:
+                os.environ[key] = st.secrets[key]
+except Exception:
+    pass
+
 from src.utils import setup_logging, get_arxiv_url, format_authors_short, truncate_text
 from src.embedder import EmbeddingModel, DEFAULT_MODEL
 from src.vector_store import FAISSVectorStore
@@ -34,6 +44,70 @@ from src.rag_pipeline import RAGPipeline
 from src.arxiv_search import search_arxiv
 
 logger = logging.getLogger(__name__)
+
+
+# ──────────────────────────────────────────────
+#  Auto-download index from Hugging Face Hub
+# ──────────────────────────────────────────────
+
+@st.cache_resource(show_spinner=False)
+def download_index_from_hf():
+    """Download the FAISS index and data from Hugging Face Hub if not present locally."""
+    index_dir = os.path.join(PROJECT_ROOT, "data", "index")
+    index_file = os.path.join(index_dir, "faiss_index.index")
+
+    if os.path.exists(index_file):
+        return True  # Already downloaded
+
+    repo_id = os.environ.get("HF_REPO_ID", "")
+    token = os.environ.get("HF_TOKEN", "")
+
+    if not repo_id:
+        return False  # No repo configured
+
+    try:
+        from huggingface_hub import hf_hub_download
+
+        os.makedirs(index_dir, exist_ok=True)
+        data_dir = os.path.join(PROJECT_ROOT, "data")
+
+        files_to_download = [
+            ("index/faiss_index.index", os.path.join(index_dir, "faiss_index.index")),
+            ("index/faiss_index_config.json", os.path.join(index_dir, "faiss_index_config.json")),
+            ("index/faiss_index_metadata.pkl", os.path.join(index_dir, "faiss_index_metadata.pkl")),
+            ("papers_processed.parquet", os.path.join(data_dir, "papers_processed.parquet")),
+        ]
+
+        progress = st.progress(0, text="📥 Downloading search index from cloud...")
+        for i, (repo_path, local_path) in enumerate(files_to_download):
+            if not os.path.exists(local_path):
+                progress.progress(
+                    (i + 1) / len(files_to_download),
+                    text=f"📥 Downloading {repo_path}...",
+                )
+                downloaded = hf_hub_download(
+                    repo_id=repo_id,
+                    filename=repo_path,
+                    repo_type="dataset",
+                    token=token if token else None,
+                    local_dir=data_dir,
+                )
+                # hf_hub_download may place file in a subfolder; move if needed
+                if downloaded != local_path and os.path.exists(downloaded):
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    if not os.path.exists(local_path):
+                        os.rename(downloaded, local_path)
+
+        progress.progress(1.0, text="✅ Index downloaded successfully!")
+        import time
+        time.sleep(1)
+        progress.empty()
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to download index from HF: {e}")
+        st.warning(f"⚠️ Could not download index: {e}")
+        return False
 
 # ──────────────────────────────────────────────
 #  Page Config & Styling
@@ -331,9 +405,12 @@ def get_index_dir() -> str:
 
 
 def check_index_exists() -> bool:
-    """Check if a pre-built index exists."""
+    """Check if a pre-built index exists. If not, try downloading from HF Hub."""
     index_dir = get_index_dir()
-    return os.path.exists(os.path.join(index_dir, "faiss_index.index"))
+    if os.path.exists(os.path.join(index_dir, "faiss_index.index")):
+        return True
+    # Try auto-downloading from Hugging Face
+    return download_index_from_hf()
 
 
 def check_llm_available() -> tuple:
