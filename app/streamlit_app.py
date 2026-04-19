@@ -29,10 +29,12 @@ except ImportError:
 # Load Streamlit Cloud secrets into environment variables
 # (This is how secrets work on Streamlit Cloud — they appear in st.secrets)
 try:
-    if hasattr(st, "secrets"):
+    if hasattr(st, "secrets") and len(st.secrets) > 0:
         for key in ["GEMINI_API_KEY", "OPENAI_API_KEY", "HF_TOKEN", "HF_REPO_ID"]:
-            if key in st.secrets and key not in os.environ:
-                os.environ[key] = st.secrets[key]
+            if key in st.secrets:
+                val = str(st.secrets[key]).strip()
+                if val:
+                    os.environ[key] = val
 except Exception:
     pass
 
