@@ -239,10 +239,10 @@ class RAGPipeline:
             context_start = prompt.index("### Retrieved Research Papers:") + len(
                 "### Retrieved Research Papers:"
             )
-            context_end = prompt.index("### Question:")
+            context_end = prompt.index("### User Question:")
             context = prompt[context_start:context_end].strip()
         except ValueError:
-            return "Unable to generate an answer. Please configure a GEMINI_API_KEY in your .env file."
+            return "⚠️ Connection to AI failed, and the fallback extractor couldn't parse the context. Please check if your GEMINI_API_KEY is valid or restart your server."
 
         summaries = []
         for block in context.split("---"):
