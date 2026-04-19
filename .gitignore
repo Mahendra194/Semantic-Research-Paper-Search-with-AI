@@ -1,0 +1,48 @@
+# Data files
+data/
+*.json
+*.npy
+*.pkl
+*.pickle
+
+# FAISS indices
+*.index
+indices/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model caches
+models/
+*.bin
+*.safetensors
+
+# Streamlit
+.streamlit/secrets.toml
