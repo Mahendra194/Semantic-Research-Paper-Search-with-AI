@@ -72,9 +72,9 @@ def download_index_from_hf():
         data_dir = os.path.join(PROJECT_ROOT, "data")
 
         files_to_download = [
-            ("index/faiss_index.index", os.path.join(index_dir, "faiss_index.index")),
-            ("index/faiss_index_config.json", os.path.join(index_dir, "faiss_index_config.json")),
-            ("index/faiss_index_metadata.pkl", os.path.join(index_dir, "faiss_index_metadata.pkl")),
+            ("faiss_index.index", os.path.join(index_dir, "faiss_index.index")),
+            ("faiss_index_config.json", os.path.join(index_dir, "faiss_index_config.json")),
+            ("faiss_index_metadata.pkl", os.path.join(index_dir, "faiss_index_metadata.pkl")),
             ("papers_processed.parquet", os.path.join(data_dir, "papers_processed.parquet")),
         ]
 
