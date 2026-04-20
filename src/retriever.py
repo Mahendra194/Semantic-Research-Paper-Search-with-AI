@@ -44,6 +44,7 @@ class SemanticRetriever:
         top_k: int = 5,
         year_filter: Optional[int] = None,
         category_filter: Optional[str] = None,
+        author_filter: Optional[str] = None,
         min_score: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
@@ -54,6 +55,7 @@ class SemanticRetriever:
             top_k: Number of results to return.
             year_filter: If set, only return papers from this year or later.
             category_filter: If set, only return papers matching this category prefix.
+            author_filter: If set, only return papers whose authors contain this string.
             min_score: Minimum similarity score threshold.
 
         Returns:
@@ -63,7 +65,7 @@ class SemanticRetriever:
         query_embedding = self.embedder.encode_query(query)
 
         # Over-fetch if filters are applied (to ensure enough results post-filter)
-        fetch_k = top_k * 5 if (year_filter or category_filter) else top_k
+        fetch_k = top_k * 5 if (year_filter or category_filter or author_filter) else top_k
 
         # Search vector store
         raw_results = self.vector_store.search(query_embedding, top_k=fetch_k)
@@ -87,6 +89,12 @@ class SemanticRetriever:
             if category_filter is not None:
                 paper_cats = meta.get("categories", "")
                 if category_filter.lower() not in paper_cats.lower():
+                    continue
+
+            # Author filter
+            if author_filter is not None:
+                paper_authors = meta.get("authors", "")
+                if author_filter.lower() not in paper_authors.lower():
                     continue
 
             filtered.append(result)

@@ -458,6 +458,12 @@ with st.sidebar:
         help="Filter results by arXiv category",
     )
 
+    author_filter = st.text_input(
+        "Author filter (e.g., Vaswani)",
+        value="",
+        help="Filter results by author name (partial match)",
+    )
+
     st.divider()
 
     # RAG settings
@@ -562,6 +568,7 @@ with tab_search:
 
                     yr = year_filter if year_filter_enabled else None
                     cat = category_filter if category_filter else None
+                    auth = author_filter if author_filter else None
 
                     if show_keyword_comparison:
                         comparison = retriever.search_with_comparison(query, top_k=top_k)
@@ -582,7 +589,7 @@ with tab_search:
                                 st.info("No keyword matches found.")
                     else:
                         results = retriever.search(
-                            query, top_k=top_k, year_filter=yr, category_filter=cat
+                            query, top_k=top_k, year_filter=yr, category_filter=cat, author_filter=auth
                         )
 
                         if results:
@@ -744,12 +751,14 @@ with tab_rag:
 
                     yr = year_filter if year_filter_enabled else None
                     cat = category_filter if category_filter else None
+                    auth = author_filter if author_filter else None
 
                     result = rag.answer(
                         question,
                         top_k=top_k,
                         year_filter=yr,
                         category_filter=cat,
+                        author_filter=auth,
                     )
 
                     st.markdown("### 💡 Answer")

@@ -296,6 +296,7 @@ class RAGPipeline:
         top_k: int = 5,
         year_filter: Optional[int] = None,
         category_filter: Optional[str] = None,
+        author_filter: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Answer a question using RAG (retrieve → format context → generate).
@@ -305,6 +306,7 @@ class RAGPipeline:
             top_k: Number of papers to retrieve.
             year_filter: Optional year filter.
             category_filter: Optional category filter.
+            author_filter: Optional author name filter.
 
         Returns:
             Dict with 'answer', 'sources', 'query', 'context_used'.
@@ -315,6 +317,7 @@ class RAGPipeline:
             top_k=top_k,
             year_filter=year_filter,
             category_filter=category_filter,
+            author_filter=author_filter,
         )
 
         if not results:
