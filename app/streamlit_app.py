@@ -849,23 +849,27 @@ with tab_live:
                     if result["papers"]:
                         try:
                             embedder = load_embedder(DEFAULT_MODEL)
-                            query_emb = embedder.encode_query(live_query)
+                            query_emb = embedder.encode_query(live_query).flatten()
                             abstracts = [p.get("abstract", p.get("title", "")) for p in result["papers"]]
                             paper_embs = embedder.encode_texts(abstracts, show_progress=False)
 
                             # Cosine similarity
                             from numpy.linalg import norm
                             scores = []
+                            q_norm = norm(query_emb)
                             for emb in paper_embs:
-                                cos_sim = float(np.dot(query_emb, emb) / (norm(query_emb) * norm(emb) + 1e-10))
+                                e = emb.flatten()
+                                cos_sim = float(np.dot(query_emb, e) / (q_norm * norm(e) + 1e-10))
                                 scores.append(max(0.0, cos_sim))
 
                             # Attach scores and sort by similarity
                             for paper, score in zip(result["papers"], scores):
                                 paper["_similarity"] = score
                             result["papers"].sort(key=lambda p: p.get("_similarity", 0), reverse=True)
-                        except Exception:
-                            # If scoring fails, just show without scores
+                        except Exception as e:
+                            # Show error so we can debug, then fall back to no scores
+                            logger.error(f"Similarity scoring failed: {e}")
+                            st.warning(f"⚠️ Could not compute similarity: {e}")
                             for paper in result["papers"]:
                                 paper["_similarity"] = 0.0
 
