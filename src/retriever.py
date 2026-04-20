@@ -5,6 +5,7 @@ High-level semantic search interface that orchestrates the embedder and vector s
 Supports optional metadata filtering (by year, category) on top of vector similarity.
 """
 
+import re
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -85,10 +86,10 @@ class SemanticRetriever:
                 if paper_year is not None and paper_year < year_filter:
                     continue
 
-            # Category filter
+            # Category filter (smart matching: "csai" matches "cs.AI")
             if category_filter is not None:
                 paper_cats = meta.get("categories", "")
-                if category_filter.lower() not in paper_cats.lower():
+                if not _category_matches(category_filter, paper_cats):
                     continue
 
             # Author filter
@@ -191,6 +192,30 @@ class SemanticRetriever:
     def num_papers(self) -> int:
         """Number of indexed papers."""
         return self.vector_store.size
+
+
+
+def _category_matches(user_input: str, paper_categories: str) -> bool:
+    """
+    Smart category matching that handles common shorthand.
+    e.g., 'csai' matches 'cs.AI', 'statML' matches 'stat.ML', etc.
+    """
+    # Normalize: strip dots, dashes, spaces and lowercase
+    def normalize(s: str) -> str:
+        return re.sub(r'[.\-\s]', '', s).lower()
+
+    user_norm = normalize(user_input)
+
+    # Check each category in the paper's category list
+    for cat in paper_categories.split():
+        if user_norm in normalize(cat) or normalize(cat) in user_norm:
+            return True
+
+    # Also try direct substring match on original (for exact matches like "cs.AI")
+    if user_input.lower() in paper_categories.lower():
+        return True
+
+    return False
 
 
 if __name__ == "__main__":

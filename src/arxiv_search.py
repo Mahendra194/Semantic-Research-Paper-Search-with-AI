@@ -41,6 +41,7 @@ def search_arxiv(
     sort_by: str = "relevance",
     sort_order: str = "descending",
     category: Optional[str] = None,
+    author: Optional[str] = None,
     start: int = 0,
 ) -> Dict[str, Any]:
     """
@@ -52,6 +53,7 @@ def search_arxiv(
         sort_by: Sort criterion — 'relevance', 'lastUpdatedDate', or 'submittedDate'.
         sort_order: Sort direction — 'ascending' or 'descending'.
         category: Optional arXiv category filter (e.g., 'cs.AI', 'cs.CL').
+        author: Optional author name filter.
         start: Offset for pagination.
 
     Returns:
@@ -68,6 +70,8 @@ def search_arxiv(
     search_query = f"all:{query}"
     if category:
         search_query = f"cat:{category} AND all:{query}"
+    if author:
+        search_query = f"au:{author} AND {search_query}"
 
     # URL parameters
     params = {

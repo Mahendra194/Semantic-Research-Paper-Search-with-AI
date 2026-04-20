@@ -810,18 +810,70 @@ with tab_live:
     if live_query:
         with st.spinner("🌐 Searching arXiv..."):
             try:
-                cat_filter = live_category.strip() if live_category else None
+                # Normalize category input (csai → cs.AI)
+                raw_cat = live_category.strip() if live_category else ""
+                if raw_cat:
+                    # Try to insert a dot if missing (e.g., "csAI" → "cs.AI")
+                    import re as _re
+                    normalized = _re.sub(r'[.\-\s]', '', raw_cat)
+                    # Common prefixes: cs, stat, math, eess, physics, q-bio, q-fin
+                    for prefix in ['cs', 'stat', 'math', 'eess', 'physics', 'econ', 'astro']:
+                        if normalized.lower().startswith(prefix) and len(normalized) > len(prefix):
+                            rest = normalized[len(prefix):]
+                            raw_cat = f"{prefix}.{rest.upper()}"
+                            break
+                cat_filter = raw_cat if raw_cat else None
+
+                # Use sidebar author filter for live search too
+                auth_filter = author_filter.strip() if author_filter else None
+
                 result = search_arxiv(
                     query=live_query,
                     max_results=live_max_results,
                     sort_by=live_sort_by,
                     category=cat_filter,
+                    author=auth_filter,
                 )
 
                 if "error" in result:
                     st.error(f"arXiv API error: {result['error']}")
                 elif result["papers"]:
-                    st.markdown(f"""
+                    # Apply year filter from sidebar
+                    if year_filter_enabled:
+                        result["papers"] = [
+                            p for p in result["papers"]
+                            if p.get("year", "") and int(p["year"]) >= year_filter
+                        ]
+
+                    # Compute similarity scores for live results
+                    if result["papers"]:
+                        try:
+                            embedder = load_embedder(DEFAULT_MODEL)
+                            query_emb = embedder.encode_query(live_query)
+                            abstracts = [p.get("abstract", p.get("title", "")) for p in result["papers"]]
+                            paper_embs = embedder.encode_texts(abstracts, show_progress=False)
+
+                            # Cosine similarity
+                            from numpy.linalg import norm
+                            scores = []
+                            for emb in paper_embs:
+                                cos_sim = float(np.dot(query_emb, emb) / (norm(query_emb) * norm(emb) + 1e-10))
+                                scores.append(max(0.0, cos_sim))
+
+                            # Attach scores and sort by similarity
+                            for paper, score in zip(result["papers"], scores):
+                                paper["_similarity"] = score
+                            result["papers"].sort(key=lambda p: p.get("_similarity", 0), reverse=True)
+                        except Exception:
+                            # If scoring fails, just show without scores
+                            for paper in result["papers"]:
+                                paper["_similarity"] = 0.0
+
+                    if not result["papers"]:
+                        st.info("No results match your filters. Try adjusting the year or author filter.")
+                    else:
+                        avg_sim = np.mean([p.get("_similarity", 0) for p in result["papers"]])
+                        st.markdown(f"""
                     <div class="stats-strip">
                         <div class="stat-item">
                             <div class="stat-value">{len(result['papers'])}</div>
@@ -830,6 +882,10 @@ with tab_live:
                         <div class="stat-item">
                             <div class="stat-value">{result['total_results']:,}</div>
                             <div class="stat-label">Total on arXiv</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{avg_sim:.3f}</div>
+                            <div class="stat-label">Avg Similarity</div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-value">Live</div>
@@ -850,7 +906,8 @@ with tab_live:
                         )
                         if is_selected:
                             live_selected_indices.append(i)
-                        render_paper_card(paper, score=0.0, rank=i + 1, show_score=False)
+                        sim_score = paper.get("_similarity", 0.0)
+                        render_paper_card(paper, score=sim_score, rank=i + 1, show_score=(sim_score > 0))
 
                     # Ask AI about live results
                     st.divider()
